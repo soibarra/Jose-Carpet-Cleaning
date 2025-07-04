@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Chat</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(rgba(0,0,50,0.8), rgba(0,0,50,0.8));
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            font-size: 36px;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            display: flex;
+            gap: 20px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .chat-box, .summary-box, .quote-box {
+            flex: 1;
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 15px;
+            color: #333;
+        }
+        .chat-box {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .chat-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #3c00a0;
+        }
+        .chat-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+            display: inline-block;
+        }
+        .chat-message.ai {
+            background: #e0eaff;
+            margin-left: 0;
+        }
+        .chat-message.customer {
+            background: #d3e3fc;
+            margin-left: auto;
+            text-align: right;
+        }
+        .chat-message .time {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .summary-box p {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .quote-box .amount {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .quote-box textarea {
+            width: 100%;
+            height: 80px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            resize: vertical;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+        .quote-box button {
+            background: #3c00a0;
+            color: #fff;
+            height: 40px;
+            border-radius: 20px;
+            border: 0;
+            outline: 0;
+            cursor: pointer;
+            padding: 10px 20px;
+            margin: 10px 5px 0 0;
+            transition: background 0.3s;
+        }
+        .quote-box button:hover {
+            background: #2a0080;
+        }
+        .quote-box button:disabled {
+            background: #eaeaea;
+            color: #555;
+            cursor: not-allowed;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+        .back-btn {
+            background: #3c00a0;
+            color: #fff;
+            height: 40px;
+            border-radius: 20px;
+            border: 0;
+            outline: 0;
+            cursor: pointer;
+            padding: 10px 20px;
+            transition: background 0.3s;
+        }
+        .back-btn:hover {
+            background: #2a0080;
+        }
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .chat-box, .summary-box, .quote-box {
+                width: 100%;
+            }
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            .chat-box, .summary-box, .quote-box {
+                padding: 10px;
+            }
+            .quote-box button, .back-btn {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Customer Chat</h1>
+    <div class="container">
+        <div class="chat-box">
+            <div class="chat-header">AI Assistant</div>
+            <div id="chatMessages"></div>
+        </div>
+        <div class="summary-box">
+            <div class="chat-header">Executive Summary</div>
+            <p id="chatSummary"></p>
+        </div>
+        <div class="quote-box">
+            <div class="chat-header">Proposed Quote</div>
+            <div class="amount" id="quoteAmount"></div>
+            <textarea id="quoteText" placeholder="Edit the quote description here"></textarea>
+            <div class="button-container">
+                <button onclick="polishQuote()">Polish Language</button>
+                <button id="sendBtn" onclick="sendQuote()">Send</button>
+            </div>
+        </div>
+    </div>
+    <div style="margin-top: 20px;">
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const requestId = parseInt(urlParams.get('requestId'));
+            const requests = JSON.parse(localStorage.getItem('customerRequests')) || [];
+            const request = requests.find(r => r.id === requestId);
+
+            if (!request) {
+                document.getElementById('chatHeader').innerHTML = 'Request not found';
+                document.getElementById('chatSummary').innerHTML = 'No summary available';
+                document.getElementById('quoteAmount').innerHTML = '$0.00';
+                document.getElementById('quoteText').value = '';
+                document.getElementById('sendBtn').disabled = true;
+                return;
+            }
+
+            // Display chat messages
+            const chatMessages = document.getElementById('chatMessages');
+            request.messages.forEach(message => {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('chat-message', message.sender === 'customer' ? 'customer' : 'ai');
+                msgDiv.innerHTML = `
+                    <div>${message.text}</div>
+                    <div class="time">${message.time}</div>
+                `;
+                chatMessages.appendChild(msgDiv);
+            });
+
+            // Display summary
+            document.getElementById('chatSummary').innerHTML = request.summary;
+
+            // Display and initialize quote
+            document.getElementById('quoteAmount').innerHTML = request.quote;
+            document.getElementById('quoteText').value = request.keyword;
+
+            // Disable send button if already sent
+            if (request.status === 'approved') {
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('sendBtn').innerHTML = 'Sent';
+            }
+        });
+
+        function polishQuote() {
+            const quoteText = document.getElementById('quoteText').value;
+            if (!quoteText) {
+                alert('Please enter a quote description to polish.');
+                return;
+            }
+            // Simulate natural language polishing
+            const polishedText = `We’re happy to assist with your ${quoteText.toLowerCase()} cleaning. Looking forward to helping you get it spotless—please let us know if you have any questions!`;
+            document.getElementById('quoteText').value = polishedText;
+        }
+
+        function sendQuote() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const requestId = parseInt(urlParams.get('requestId'));
+            const requests = JSON.parse(localStorage.getItem('customerRequests')) || [];
+            const request = requests.find(r => r.id === requestId);
+
+            if (request) {
+                request.status = 'approved';
+                request.closedAt = new Date().toISOString();
+                request.finalQuote = `${request.quote} - ${document.getElementById('quoteText').value}`;
+                localStorage.setItem('customerRequests', JSON.stringify(requests));
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('sendBtn').innerHTML = 'Sent';
+                alert(`Quote sent to ${request.customer}!`);
+            }
+        }
+    </script>
+</body>
+</html>

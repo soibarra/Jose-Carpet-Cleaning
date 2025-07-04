@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Requests Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(rgba(0,0,50,0.8), rgba(0,0,50,0.8));
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            font-size: 36px;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .table-container {
+            width: 90%;
+            max-width: 800px;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #3c00a0;
+            color: #fff;
+            font-weight: 600;
+        }
+        td {
+            color: #333;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
+        a {
+            color: #3c00a0;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .signout-btn {
+            background: #3c00a0;
+            color: #fff;
+            height: 40px;
+            border-radius: 20px;
+            border: 0;
+            outline: 0;
+            cursor: pointer;
+            padding: 10px 20px;
+            margin: 20px 0;
+            transition: background 0.3s;
+        }
+        .signout-btn:hover {
+            background: #2a0080;
+        }
+        .chart-container {
+            width: 90%;
+            max-width: 800px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            th, td {
+                padding: 10px;
+                font-size: 14px;
+            }
+            .signout-btn {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+            .chart-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Customer Requests Dashboard</h1>
+    <div class="table-container">
+        <table id="requestsTable">
+            <thead>
+                <tr>
+                    <th>Request Summary</th>
+                    <th>Estimate Quotes</th>
+                    <th>Time Request Opened</th>
+                </tr>
+            </thead>
+            <tbody id="requestsBody">
+                <!-- Rows will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    <button class="signout-btn" onclick="signOut()">Sign Out</button>
+    <div class="chart-container">
+        <canvas id="requestsChart"></canvas>
+    </div>
+    <script>
+        // Sample data initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize sample data with keywords and timestamps for a cleaning business
+            let requests = JSON.parse(localStorage.getItem('customerRequests')) || [
+                {
+                    id: 1,
+                    keyword: "Two couches",
+                    quote: "$500",
+                    time: "2025-06-30 10:00 AM",
+                    createdAt: "2025-06-30T10:00:00Z",
+                    customer: "John Doe",
+                    messages: [
+                        { sender: "customer", text: "Hi, I need two couches cleaned.", time: "2025-06-30 09:50 AM" },
+                        { sender: "manager", text: "We can clean both couches for an estimated $500.", time: "2025-06-30 10:00 AM" }
+                    ],
+                    status: "pending"
+                },
+                {
+                    id: 2,
+                    keyword: "Cat pee on couch",
+                    quote: "$1200",
+                    time: "2025-07-01 11:30 AM",
+                    createdAt: "2025-07-01T11:30:00Z",
+                    customer: "Jane Smith",
+                    messages: [
+                        { sender: "customer", text: "My cat peed on the couch, can you clean it?", time: "2025-07-01 11:20 AM" },
+                        { sender: "manager", text: "Due to the specialized cleaning required, the quote is $1200.", time: "2025-07-01 11:30 AM" }
+                    ],
+                    status: "pending"
+                },
+                {
+                    id: 3,
+                    keyword: "Carpet stains",
+                    quote: "$800",
+                    time: "2025-07-02 09:15 AM",
+                    createdAt: "2025-07-02T09:15:00Z",
+                    customer: "Alex Brown",
+                    messages: [
+                        { sender: "customer", text: "I have multiple stains on my living room carpet.", time: "2025-07-02 09:00 AM" },
+                        { sender: "manager", text: "We can clean the carpet for an estimated $800.", time: "2025-07-02 09:15 AM" }
+                    ],
+                    status: "pending"
+                }
+            ];
+
+            // Save sample data to localStorage if not already present
+            if (!localStorage.getItem('customerRequests')) {
+                localStorage.setItem('customerRequests', JSON.stringify(requests));
+            }
+
+            // Populate table
+            const tbody = document.getElementById('requestsBody');
+            requests.forEach(request => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><a href="chat.html?requestId=${request.id}">${request.keyword}</a></td>
+                    <td>${request.quote}</td>
+                    <td>${request.time}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Process data for chart
+            const days = [
+                { day: "Monday", date: "6/30/25", isoDate: "2025-06-30" },
+                { day: "Tuesday", date: "7/1/25", isoDate: "2025-07-01" },
+                { day: "Wednesday", date: "7/2/25", isoDate: "2025-07-02" }
+            ];
+
+            const requestCounts = days.map(day => {
+                return requests.filter(req => req.createdAt.startsWith(day.isoDate)).length;
+            });
+
+            const averageDurations = days.map(day => {
+                const dayRequests = requests.filter(req => req.createdAt.startsWith(day.isoDate));
+                if (dayRequests.length === 0) return 0;
+                const durations = dayRequests.map(req => {
+                    const created = new Date(req.createdAt);
+                    const closed = req.closedAt ? new Date(req.closedAt) : new Date();
+                    return (closed - created) / (1000 * 60 * 60); // Convert ms to hours
+                });
+                return durations.reduce((sum, dur) => sum + dur, 0) / durations.length;
+            });
+
+            // Create chart
+            const ctx = document.getElementById('requestsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days.map(d => `${d.day}\n${d.date}`),
+                    datasets: [
+                        {
+                            label: 'Number of Requests',
+                            data: requestCounts,
+                            backgroundColor: '#3c00a0',
+                            yAxisID: 'y',
+                            barThickness: 40
+                        },
+                        {
+                            label: 'Average Duration (Hours)',
+                            data: averageDurations,
+                            type: 'line',
+                            borderColor: '#ff6347',
+                            backgroundColor: '#ff6347',
+                            fill: false,
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Days',
+                                color: '#333',
+                                font: { family: 'Poppins', size: 14 }
+                            },
+                            ticks: { color: '#333' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Requests',
+                                color: '#333',
+                                font: { family: 'Poppins', size: 14 }
+                            },
+                            ticks: { color: '#333', stepSize: 1 }
+                        },
+                        y1: {
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Avg Duration (Hours)',
+                                color: '#333',
+                                font: { family: 'Poppins', size: 14 }
+                            },
+                            ticks: { color: '#333' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: { family: 'Poppins' },
+                                color: '#333'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        // Sign out function
+        function signOut() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
